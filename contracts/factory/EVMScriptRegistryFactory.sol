@@ -4,6 +4,7 @@ import "../evmscript/IEVMScriptExecutor.sol";
 import "../evmscript/EVMScriptRegistry.sol";
 
 import "../evmscript/executors/CallsScript.sol";
+import "../evmscript/executors/DynamicCallsScript.sol";
 
 import "../kernel/Kernel.sol";
 import "../acl/ACL.sol";
@@ -12,6 +13,7 @@ import "../acl/ACL.sol";
 contract EVMScriptRegistryFactory is EVMScriptRegistryConstants {
     EVMScriptRegistry public baseReg;
     IEVMScriptExecutor public baseCallScript;
+    IEVMScriptExecutor public dynamicCallsScript;
 
     /**
     * @notice Create a new EVMScriptRegistryFactory.
@@ -19,6 +21,7 @@ contract EVMScriptRegistryFactory is EVMScriptRegistryConstants {
     constructor() public {
         baseReg = new EVMScriptRegistry();
         baseCallScript = IEVMScriptExecutor(new CallsScript());
+        dynamicCallsScript = IEVMScriptExecutor(new DynamicCallsScript());
     }
 
     /**
@@ -35,6 +38,7 @@ contract EVMScriptRegistryFactory is EVMScriptRegistryConstants {
         acl.createPermission(this, reg, reg.REGISTRY_ADD_EXECUTOR_ROLE(), this);
 
         reg.addScriptExecutor(baseCallScript);     // spec 1 = CallsScript
+        reg.addScriptExecutor(dynamicCallsScript); // spec 2 = dynamicCallsScript
 
         // Clean up the permissions
         acl.revokePermission(this, reg, reg.REGISTRY_ADD_EXECUTOR_ROLE());

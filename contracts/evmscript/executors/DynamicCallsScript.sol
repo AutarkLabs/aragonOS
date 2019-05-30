@@ -25,7 +25,7 @@ contract DynamicCallsScript is BaseEVMScriptExecutor {
     * @return Always returns empty byte array
     */
     function execScript(bytes _script, bytes _input, address[] _blacklist) external isInitialized returns (bytes) {
-        // Implement input<->script merge
+        // Implement input<---> script merge
         //Implement script execution
     }
 

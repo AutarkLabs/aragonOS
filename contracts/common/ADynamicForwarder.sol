@@ -4,8 +4,17 @@
 
 pragma solidity ^0.4.24;
 
+import "./IForwarder.sol";
+import "../evmscript/ScriptHelpers.sol";
+import "../lib/math/SafeMath.sol";
+import "../lib/math/SafeMath64.sol";
+
+
 
 contract ADynamicForwarder is IForwarder {
+    using ScriptHelpers for bytes;
+    using SafeMath for uint256;
+    using SafeMath64 for uint64;
 
     uint256 constant public OPTION_ADDR_PARAM_LOC = 1;
     uint256 constant public OPTION_SUPPORT_PARAM_LOC = 2;
@@ -33,13 +42,17 @@ contract ADynamicForwarder is IForwarder {
         bool added;
         string metadata;
         uint8 keyArrayIndex;
-        uint256 support;
+        uint256 actionSupport;
         bytes32 externalId1;
         bytes32 externalId2;
     }
 
     mapping (bytes32 => address ) optionAddresses;
     Action[] actions;
+
+    event AddOption(uint256 actionId, address optionAddress, uint256 optionQty);
+    event OptionQty(uint256 qty);
+    event Address(address currentOption);
 
     /**
     * @notice `getOption` serves as a basic getter using the description
@@ -233,7 +246,7 @@ contract ADynamicForwarder is IForwarder {
         _iterateExtraction(_actionId, _executionScript, currentOffset, optionLength);
         uint256 descriptionStart = fifthParamOffset + 0x20;
         uint256 descriptionEnd = descriptionStart + (_executionScript.uint256At(fifthParamOffset));
-        actionInstance.actionDescription = substring(_executionScript, descriptionStart, descriptionEnd);
+        actionInstance.description = substring(_executionScript, descriptionStart, descriptionEnd);
         // Skip the next param since it's also determined by this contract
         // In order to do this we move the offset one word for the length of the param
         // and we move the offset one word for each param.
@@ -399,5 +412,11 @@ contract ADynamicForwarder is IForwarder {
 
     function parseScript(uint256 actionId) internal returns(bytes) {
 
+    }
+
+    function getPtr(bytes memory _x) internal pure returns (uint256 ptr) {
+        assembly {
+            ptr := _x
+        }
     }
 }

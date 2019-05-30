@@ -11,6 +11,7 @@ const Kernel = artifacts.require('Kernel')
 const KernelProxy = artifacts.require('KernelProxy')
 const EVMScriptRegistry = artifacts.require('EVMScriptRegistry')
 const CallsScript = artifacts.require('CallsScript')
+const DynamicCallsScript = artifacts.require('DynamicCallsScript')
 const IEVMScriptExecutor = artifacts.require('IEVMScriptExecutor')
 
 // Mocks
@@ -546,6 +547,52 @@ contract('EVM Script', ([_, boss]) => {
           await assertRevert(scriptRunnerApp.runScript(script), reverts.EVMCALLS_INVALID_LENGTH)
         })
       })
+    })
+
+    context('> Dynamic CallsScript', () => {
+      let callsScriptBase, dynamicCallsScriptBase, executionTarget
+      beforeEach('initializes DynamicCallscripts', async () => {
+        callsScriptBase = await CallsScript.new()
+
+        // Install CallsScript onto registry
+        await acl.createPermission(boss, evmScriptReg.address, REGISTRY_ADD_EXECUTOR_ROLE, boss, { from: boss })
+        let receipt = await evmScriptReg.addScriptExecutor(callsScriptBase.address, { from: boss })
+
+        // Sanity check it's at spec ID 1
+        let callsScriptExecutorId = getEventArgument(receipt, 'EnableExecutor', 'executorId')
+        assert.equal(callsScriptExecutorId, 1, 'CallsScript should be installed as spec ID 1')
+
+        dynamicCallsScriptBase = await DynamicCallsScript.new()
+        
+        // Install CallsScript onto registry
+        //await acl.createPermission(boss, evmScriptReg.address, REGISTRY_ADD_EXECUTOR_ROLE, boss, { from: boss })
+        receipt = await evmScriptReg.addScriptExecutor(dynamicCallsScriptBase.address, { from: boss })
+        callsScriptExecutorId = getEventArgument(receipt, 'EnableExecutor', 'executorId')
+        assert.equal(callsScriptExecutorId, 2, 'DynamicCallsScript should be installed as spec ID 2')
+        executionTarget = await ExecutionTarget.new()
+      })
+
+      xit('fails if directly calling calls script', async () => {
+        const action = { to: executionTarget.address, calldata: executionTarget.contract.execute.getData() }
+        const script = encodeCallScript([action])
+
+        await assertRevert(callsScriptBase.execScript(script, EMPTY_BYTES, []), reverts.INIT_NOT_INITIALIZED)
+      })
+
+      it('is the correct executor type', async () => {
+        const CALLS_SCRIPT_TYPE = soliditySha3('DYNAMIC_CALLS_SCRIPT')
+        const executor = IEVMScriptExecutor.at(await evmScriptReg.getScriptExecutor(createExecutorId(2)))
+        assert.equal(await executor.executorType(), CALLS_SCRIPT_TYPE)
+      })
+
+      it('gets the correct executor from the app', async () => {
+        const script = createExecutorId(2)
+        const executor = await evmScriptReg.getScriptExecutor(script)
+
+        const scriptExecutor = await scriptRunnerApp.getEVMScriptExecutor(script)
+        assert.equal(executor, scriptExecutor, 'app should return the same evm script executor')
+      })
+
     })
   })
 })
