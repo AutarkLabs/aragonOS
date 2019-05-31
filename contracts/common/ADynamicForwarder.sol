@@ -406,11 +406,11 @@ contract ADynamicForwarder is IForwarder {
         }
     }
 
-    function encodeInput(uint256 actionId) internal returns(bytes) {
+    function encodeInput(uint256 _actionId) internal returns(bytes) {
 
     }
 
-    function parseScript(uint256 actionId) internal returns(bytes) {
+    function parseScript(bytes _evmScript) internal returns(uint256 actionId) {
 
     }
 

@@ -16,6 +16,7 @@ const IEVMScriptExecutor = artifacts.require('IEVMScriptExecutor')
 
 // Mocks
 const AppStubScriptRunner = artifacts.require('AppStubScriptRunner')
+const AppStubDynamicScriptRunner = artifacts.require('AppStubDynamicScriptRunner')
 const ExecutionTarget = artifacts.require('ExecutionTarget')
 const EVMScriptExecutorMock = artifacts.require('EVMScriptExecutorMock')
 const EVMScriptExecutorNoReturnMock = artifacts.require('EVMScriptExecutorNoReturnMock')
@@ -33,6 +34,7 @@ contract('EVM Script', ([_, boss]) => {
   let ERROR_MOCK_REVERT, ERROR_EXECUTION_TARGET
 
   const SCRIPT_RUNNER_APP_ID = '0x1234'
+  const DYNAMIC_SCRIPT_RUNNER_APP_ID = '0x5678'
 
   before(async () => {
     kernelBase = await Kernel.new(true) // petrify immediately
@@ -549,8 +551,13 @@ contract('EVM Script', ([_, boss]) => {
       })
     })
 
-    context('> Dynamic CallsScript', () => {
-      let callsScriptBase, dynamicCallsScriptBase, executionTarget
+    context.only('> Dynamic CallsScript', () => {
+      let callsScriptBase, dynamicCallsScriptBase, executionTarget, 
+      dynamicScriptRunnerApp, dynamicScriptRunnerAppBase
+
+      before(async () => {
+        dynamicScriptRunnerAppBase = await AppStubDynamicScriptRunner.new()
+      })
       beforeEach('initializes DynamicCallscripts', async () => {
         callsScriptBase = await CallsScript.new()
 
@@ -565,16 +572,20 @@ contract('EVM Script', ([_, boss]) => {
         dynamicCallsScriptBase = await DynamicCallsScript.new()
         
         // Install CallsScript onto registry
-        //await acl.createPermission(boss, evmScriptReg.address, REGISTRY_ADD_EXECUTOR_ROLE, boss, { from: boss })
         receipt = await evmScriptReg.addScriptExecutor(dynamicCallsScriptBase.address, { from: boss })
         callsScriptExecutorId = getEventArgument(receipt, 'EnableExecutor', 'executorId')
         assert.equal(callsScriptExecutorId, 2, 'DynamicCallsScript should be installed as spec ID 2')
         executionTarget = await ExecutionTarget.new()
+
+        // Install App capable of dynamically modifying scripts
+        receipt = await dao.newAppInstance(DYNAMIC_SCRIPT_RUNNER_APP_ID, dynamicScriptRunnerAppBase.address, EMPTY_BYTES, false, { from: boss })
+        dynamicScriptRunnerApp = AppStubScriptRunner.at(getNewProxyAddress(receipt))
+        await dynamicScriptRunnerApp.initialize()
       })
 
       xit('fails if directly calling calls script', async () => {
         const action = { to: executionTarget.address, calldata: executionTarget.contract.execute.getData() }
-        const script = encodeCallScript([action])
+        const script = encodeCallScript([action],)
 
         await assertRevert(callsScriptBase.execScript(script, EMPTY_BYTES, []), reverts.INIT_NOT_INITIALIZED)
       })
@@ -589,8 +600,14 @@ contract('EVM Script', ([_, boss]) => {
         const script = createExecutorId(2)
         const executor = await evmScriptReg.getScriptExecutor(script)
 
-        const scriptExecutor = await scriptRunnerApp.getEVMScriptExecutor(script)
+        const scriptExecutor = await dynamicScriptRunnerApp.getEVMScriptExecutor(script)
         assert.equal(executor, scriptExecutor, 'app should return the same evm script executor')
+      })
+
+      xit('accepts new action', async () =>{
+        const action = { to: executionTarget.address, calldata: executionTarget.contract.execute.getData() }
+        const script = encodeCallScript([action], 2)
+        //await dynamicScriptRunnerApp.
       })
 
     })
