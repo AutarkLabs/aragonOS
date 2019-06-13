@@ -53,6 +53,8 @@ contract ADynamicForwarder is IForwarder {
     event AddOption(uint256 actionId, address optionAddress, uint256 optionQty);
     event OptionQty(uint256 qty);
     event Address(address currentOption);
+    event LogVal(uint256 value);
+    event OrigScript(bytes script);
 
     /**
     * @notice `getOption` serves as a basic getter using the description
@@ -407,7 +409,51 @@ contract ADynamicForwarder is IForwarder {
     }
 
     function encodeInput(uint256 _actionId) internal returns(bytes) {
+        Action storage action = actions[_actionId];
+        action.executed = true;
+        uint256 optionsLength = action.optionKeys.length;
 
+        bytes memory origExecScript = new bytes(32);
+        origExecScript = action.executionScript;
+        uint256 dynamicOffset = origExecScript.uint256At(32);
+        emit LogVal(dynamicOffset);
+        uint256 infoStrLength = action.infoStringLength;
+        emit LogVal(infoStrLength);
+        emit LogVal(optionsLength);
+        uint256 desStrLength = bytes(action.description).length;
+        emit LogVal(desStrLength);
+        uint256 callDataLength = 228 + dynamicOffset + optionsLength * 160;
+        emit LogVal(callDataLength);
+        callDataLength += (infoStrLength / 32) * 32 + (infoStrLength % 32 == 0 ? 0 : 32);
+        callDataLength += (desStrLength / 32) * 32 + (desStrLength % 32 == 0 ? 0 : 32);
+        emit LogVal(callDataLength);
+        bytes memory callDataLengthMem = new bytes(32);
+        assembly { // solium-disable-line security/no-inline-assembly
+            mstore(add(callDataLengthMem, 32), callDataLength)
+        }
+        bytes memory script = new bytes(callDataLength + 28);
+        emit LogVal(callDataLength + 28);
+        script.copy(origExecScript.getPtr() + 32,0, 64);
+
+        memcpyshort((script.getPtr() + 56), callDataLengthMem.getPtr() + 60, 4);
+
+        addDynamicElements(script, dynamicOffset, optionsLength, infoStrLength, desStrLength);
+        script.copy(origExecScript.getPtr() + 288, 256, dynamicOffset - 256);
+        uint256 offset = addAddressesAndActions(_actionId, script, optionsLength, dynamicOffset);
+
+        offset = _goToParamOffset(INDICIES_PARAM_LOC, script) + 0x20;
+        offset = addInfoString(_actionId, script, optionsLength, offset);
+        //Copy over Description
+        offset = _goToParamOffset(DESCRIPTION_PARAM_LOC, script) + 0x20;
+        assembly { // solium-disable-line security/no-inline-assembly
+                mstore(add(script, offset), desStrLength)
+        }
+        script.copy(bytes(action.description).getPtr() + 32, offset, desStrLength);
+        // Copy over External References
+        offset = _goToParamOffset(EX_ID1_PARAM_LOC, script) + 0x20;
+        addExternalIds(_actionId, script, optionsLength, offset);
+        emit OrigScript(origExecScript);
+        return script;
     }
 
     function parseScript(bytes _evmScript) internal returns(uint256 actionId) {

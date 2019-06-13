@@ -7,6 +7,7 @@ import "../../../common/ADynamicForwarder.sol";
 
 contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
     event ReturnedBytes(bytes returnedBytes);
+    event SupportUpdated(uint256 actionId, uint256 optionId, uint256 support);
 
     // Initialization is required to access any of the real executors
     function initialize() public {
@@ -18,23 +19,40 @@ contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
     }
 
     // Populate action without parsing an execution script
-    function newSyntheticAction(bytes _executionScript) public {
+    function newSyntheticAction(bytes _executionScript, string _description) public {
         uint256 actionId = actions.length++;
         Action storage action = actions[actionId];
-        action.externalId = actionId;   //uint256 externalId;
+        action.externalId = 54;   //uint256 externalId;
         action.metadata = "testmetadata";      //string metadata;
-        action.description = "testdescription";   //string description;
+        action.description = _description;   //string description;
         action.infoStringLength = 0;                  //uint256 infoStringLength;
         action.executionScript = _executionScript;    //bytes executionScript;
         action.scriptOffset = 0;    //uint256 scriptOffset;
         action.scriptRemainder = _executionScript.length;    //uint256 scriptRemainder;
         action.executed = false;    //bool executed;
+        //addOption(actionId, "opt1", 0x52ab26196E7144B28C117d61311e546f8D3fB799, bytes32(51), bytes32(71));
+        //addOption(actionId, "opt2", 0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722, bytes32(52), bytes32(72));
+        //addOption(actionId, "opt3", 0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484, bytes32(53), bytes32(73));
     }
 
-    function runScript(bytes script) public returns (bytes) {
-        bytes memory returnedBytes = runScript(script, new bytes(0), new address[](0));
-        emit ReturnedBytes(returnedBytes);
+    function addExternalOption(uint256 _actionId, string _info, address _optionDescription, bytes32 _id1, bytes32 _id2) public {
+        addOption(_actionId, _info, _optionDescription, _id1, _id2);
+    }
+
+    function runScript(uint256 _actionId) public returns (bytes) {
+        bytes memory script = encodeInput(_actionId);
+        emit ReturnedBytes(script);
+        bytes memory returnedBytes = script;
+        runScript(script, new bytes(0), new address[](0));
+        //emit ReturnedBytes(returnedBytes);
         return returnedBytes;
+    }
+
+    function updateSupport(uint256 _actionId, uint256 _optionIndex, uint256 _support) public {
+        Action storage actionInstance = actions[_actionId];
+        OptionState storage option = actionInstance.options[actionInstance.optionKeys[_optionIndex]];
+        option.actionSupport = _support;
+        emit SupportUpdated(_actionId, _optionIndex, _support);
     }
 
     //function runScriptWithBan(bytes script, address[] memory blacklist) public returns (bytes) {

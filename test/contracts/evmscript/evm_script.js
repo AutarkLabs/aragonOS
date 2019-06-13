@@ -18,6 +18,7 @@ const IEVMScriptExecutor = artifacts.require('IEVMScriptExecutor')
 const AppStubScriptRunner = artifacts.require('AppStubScriptRunner')
 const AppStubDynamicScriptRunner = artifacts.require('AppStubDynamicScriptRunner')
 const ExecutionTarget = artifacts.require('ExecutionTarget')
+const DynamicExecutionTarget = artifacts.require('DynamicExecutionTarget')
 const EVMScriptExecutorMock = artifacts.require('EVMScriptExecutorMock')
 const EVMScriptExecutorNoReturnMock = artifacts.require('EVMScriptExecutorNoReturnMock')
 const EVMScriptExecutorRevertMock = artifacts.require('EVMScriptExecutorRevertMock')
@@ -26,7 +27,7 @@ const EVMScriptRegistryConstantsMock = artifacts.require('EVMScriptRegistryConst
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 const EMPTY_BYTES = '0x'
 
-contract('EVM Script', ([_, boss]) => {
+contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
   let kernelBase, aclBase, evmScriptRegBase, dao, acl, evmScriptReg
   let scriptExecutorMock, scriptExecutorNoReturnMock, scriptExecutorRevertMock
   let APP_BASES_NAMESPACE, APP_ADDR_NAMESPACE, APP_MANAGER_ROLE
@@ -551,8 +552,8 @@ contract('EVM Script', ([_, boss]) => {
       })
     })
 
-    context.only('> Dynamic CallsScript', () => {
-      let callsScriptBase, dynamicCallsScriptBase, executionTarget, 
+    context('> Dynamic CallsScript', () => {
+      let callsScriptBase, dynamicCallsScriptBase, dynamicExecutionTarget, 
       dynamicScriptRunnerApp, dynamicScriptRunnerAppBase
 
       before(async () => {
@@ -575,19 +576,33 @@ contract('EVM Script', ([_, boss]) => {
         receipt = await evmScriptReg.addScriptExecutor(dynamicCallsScriptBase.address, { from: boss })
         callsScriptExecutorId = getEventArgument(receipt, 'EnableExecutor', 'executorId')
         assert.equal(callsScriptExecutorId, 2, 'DynamicCallsScript should be installed as spec ID 2')
-        executionTarget = await ExecutionTarget.new()
+        dynamicExecutionTarget = await DynamicExecutionTarget.new()
 
         // Install App capable of dynamically modifying scripts
         receipt = await dao.newAppInstance(DYNAMIC_SCRIPT_RUNNER_APP_ID, dynamicScriptRunnerAppBase.address, EMPTY_BYTES, false, { from: boss })
-        dynamicScriptRunnerApp = AppStubScriptRunner.at(getNewProxyAddress(receipt))
+        dynamicScriptRunnerApp = AppStubDynamicScriptRunner.at(getNewProxyAddress(receipt))
         await dynamicScriptRunnerApp.initialize()
       })
 
-      xit('fails if directly calling calls script', async () => {
-        const action = { to: executionTarget.address, calldata: executionTarget.contract.execute.getData() }
+      it('fails if directly calling calls script', async () => {
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 4, 4, 4 ],
+            'arg1arg2arg3',
+            'description',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
         const script = encodeCallScript([action],)
 
-        await assertRevert(callsScriptBase.execScript(script, EMPTY_BYTES, []), reverts.INIT_NOT_INITIALIZED)
+        await assertRevert(dynamicCallsScriptBase.execScript(script, EMPTY_BYTES, []), reverts.INIT_NOT_INITIALIZED)
       })
 
       it('is the correct executor type', async () => {
@@ -604,10 +619,290 @@ contract('EVM Script', ([_, boss]) => {
         assert.equal(executor, scriptExecutor, 'app should return the same evm script executor')
       })
 
-      xit('accepts new action', async () =>{
-        const action = { to: executionTarget.address, calldata: executionTarget.contract.execute.getData() }
+      it('executes with description string and info string', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 4, 4, 4 ],
+            'arg1arg2arg3',
+            'description',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
         const script = encodeCallScript([action], 2)
-        //await dynamicScriptRunnerApp.
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(script, 'testdescription')
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, 'opt1', 0x52ab26196E7144B28C117d61311e546f8D3fB799, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, 'opt2', 0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, 'opt3', 0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
+      })
+
+      // NOTE: changing the description length to require an extra word
+      //       causes the values below the description script to be encoded one byte early
+      //       and overwrite the last "new" word meant for the string
+      it('executes with a long description string', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 0, 0, 0 ],
+            '',
+            'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
+        const script = encodeCallScript([action], 2)
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(
+          script, 
+          'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.'
+        )
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
+      })
+
+      it('executes with a shortened description string', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 0, 0, 0 ],
+            '',
+            'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
+        const script = encodeCallScript([action], 2)
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(
+          script, 
+          'We will either see technology'
+        )
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
+      })
+
+      it('executes with a long info string', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 0, 0, 0 ],
+            '',
+            '',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
+        const script = encodeCallScript([action], 2)
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(
+          script, 
+          ''
+        )
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, 'deaddeaddeady', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, 'beefybeefybeefy', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, 'beefdeadbeef', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
+      })
+
+      it('executes without description string or info string', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 0, 0, 0 ],
+            '',
+            '',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
+        const script = encodeCallScript([action], 2)
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(script, '')
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
+      })
+
+      it('executes after adding an additional option', async () => {
+        //console.log('accounts', account1, account2, account3, boss)
+        const action = { 
+          to: dynamicExecutionTarget.address, 
+          calldata: dynamicExecutionTarget
+          .contract.setSignal.getData(
+            [ account1, account2, account3 ],
+            [ 0, 0, 0 ],
+            [ 0, 0, 0 ],
+            '',
+            '',
+            [ 0x61, 0x61, 0x61 ],
+            [ 0x61, 0x61, 0x61 ],
+            5,
+            true
+          ) 
+        }
+        const script = encodeCallScript([action], 2)
+        //console.log('script: ',script)
+        const scriptLength = script.slice(50,58)
+        //console.log('len: ',scriptLength)
+        await dynamicScriptRunnerApp.newSyntheticAction(
+          script, 
+          ''
+        )
+        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.addExternalOption(0, '', boss, web3.fromUtf8('54'), web3.fromUtf8('74'));
+        await dynamicScriptRunnerApp.updateSupport(0,0,11)
+        await dynamicScriptRunnerApp.updateSupport(0,1,12)
+        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+        await dynamicScriptRunnerApp.runScript(0)
+        const result0 = await dynamicExecutionTarget.getSignal(0)
+        assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
+        assert.equal(web3.toUtf8(web3.toHex(result0[2])),'71', 'incorrect level2Id for option 0')
+        const result1 = await dynamicExecutionTarget.getSignal(1)
+        assert.equal(result1[0].toString(),'12', 'incorrect support for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[1])),'52', 'incorrect level1Id for option 1')
+        assert.equal(web3.toUtf8(web3.toHex(result1[2])),'72', 'incorrect level2Id for option 1')
+        const result2 = await dynamicExecutionTarget.getSignal(2)
+        assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        //assert(false,'display events')
       })
 
     })
