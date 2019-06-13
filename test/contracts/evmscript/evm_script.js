@@ -27,6 +27,9 @@ const EVMScriptRegistryConstantsMock = artifacts.require('EVMScriptRegistryConst
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 const EMPTY_BYTES = '0x'
 
+const getCreatedActionId = receipt =>
+  receipt.logs.filter(x => x.event === 'NewSynthAction')[0].args.actionId
+
 contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
   let kernelBase, aclBase, evmScriptRegBase, dao, acl, evmScriptReg
   let scriptExecutorMock, scriptExecutorNoReturnMock, scriptExecutorRevertMock
@@ -619,8 +622,12 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         assert.equal(executor, scriptExecutor, 'app should return the same evm script executor')
       })
 
+      xit('execution script can be empty', async () => {
+        let callsScript = encodeCallsScript([],2)
+        await dynamicScriptRunnerApp.newSyntheticAction(callsScript, '')
+      })
+
       it('executes with description string and info string', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -637,17 +644,16 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(script, 'testdescription')
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, 'opt1', 0x52ab26196E7144B28C117d61311e546f8D3fB799, web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, 'opt2', 0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722, web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, 'opt3', 0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484, web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
+
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(script, 'testdescription')
+        )
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt1', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt2', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt3', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
         await dynamicScriptRunnerApp.runScript(0)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
@@ -664,11 +670,7 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         //assert(false,'display events')
       })
 
-      // NOTE: changing the description length to require an extra word
-      //       causes the values below the description script to be encoded one byte early
-      //       and overwrite the last "new" word meant for the string
       it('executes with a long description string', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -685,21 +687,19 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(
-          script, 
-          'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.'
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(
+            script, 
+            'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.'
+          )
         )
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
-        await dynamicScriptRunnerApp.runScript(0)
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
         assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
@@ -716,7 +716,6 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
       })
 
       it('executes with a shortened description string', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -733,21 +732,19 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(
-          script, 
-          'We will either see technology'
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(
+            script, 
+            'We will either see technology...'
+          )
         )
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
-        await dynamicScriptRunnerApp.runScript(0)
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
         assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
@@ -764,7 +761,6 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
       })
 
       it('executes with a long info string', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -781,21 +777,19 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(
-          script, 
-          ''
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(
+            script, 
+            ''
+          )
         )
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, 'deaddeaddeady', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, 'beefybeefybeefy', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, 'beefdeadbeef', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
-        await dynamicScriptRunnerApp.runScript(0)
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'deaddeaddeady', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'beefybeefybeefy', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, 'beefdeadbeef', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
         assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
@@ -812,7 +806,6 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
       })
 
       it('executes without description string or info string', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -829,18 +822,16 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(script, '')
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
-        await dynamicScriptRunnerApp.runScript(0)
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(script, '')
+        )
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
         assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
@@ -857,7 +848,6 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
       })
 
       it('executes after adding an additional option', async () => {
-        //console.log('accounts', account1, account2, account3, boss)
         const action = { 
           to: dynamicExecutionTarget.address, 
           calldata: dynamicExecutionTarget
@@ -874,22 +864,20 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           ) 
         }
         const script = encodeCallScript([action], 2)
-        //console.log('script: ',script)
-        const scriptLength = script.slice(50,58)
-        //console.log('len: ',scriptLength)
-        await dynamicScriptRunnerApp.newSyntheticAction(
-          script, 
-          ''
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.newSyntheticAction(
+            script, 
+            ''
+          )
         )
-        //console.log('bytes: ', web3.toHex('000000051'), web3.fromDecimal('51'))
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x52ab26196E7144B28C117d61311e546f8D3fB799', web3.fromUtf8('51'), web3.fromUtf8('71'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722', web3.fromUtf8('52'), web3.fromUtf8('72'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', '0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484', web3.fromUtf8('53'), web3.fromUtf8('73'));
-        await dynamicScriptRunnerApp.addExternalOption(0, '', boss, web3.fromUtf8('54'), web3.fromUtf8('74'));
-        await dynamicScriptRunnerApp.updateSupport(0,0,11)
-        await dynamicScriptRunnerApp.updateSupport(0,1,12)
-        await dynamicScriptRunnerApp.updateSupport(0,2,13)
-        await dynamicScriptRunnerApp.runScript(0)
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        await dynamicScriptRunnerApp.addExternalOption(actionId, '', boss, web3.fromUtf8('54'), web3.fromUtf8('74'));
+        await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
+        await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
+        await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
         assert.equal(web3.toUtf8(web3.toHex(result0[1])),'51', 'incorrect level1Id for option 0')
@@ -902,6 +890,10 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         assert.equal(result2[0].toString(),'13', 'incorrect support for option 2')
         assert.equal(web3.toUtf8(web3.toHex(result2[1])),'53', 'incorrect level1Id for option 2')
         assert.equal(web3.toUtf8(web3.toHex(result2[2])),'73', 'incorrect level2Id for option 2')
+        const result3 = await dynamicExecutionTarget.getSignal(3)
+        assert.equal(result3[0].toString(),'0', 'incorrect support for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result3[1])),'54', 'incorrect level1Id for option 2')
+        assert.equal(web3.toUtf8(web3.toHex(result3[2])),'74', 'incorrect level2Id for option 2')
         //assert(false,'display events')
       })
 

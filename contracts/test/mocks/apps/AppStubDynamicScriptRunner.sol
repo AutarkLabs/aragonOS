@@ -8,6 +8,7 @@ import "../../../common/ADynamicForwarder.sol";
 contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
     event ReturnedBytes(bytes returnedBytes);
     event SupportUpdated(uint256 actionId, uint256 optionId, uint256 support);
+    event NewSynthAction(uint256 actionId);
 
     // Initialization is required to access any of the real executors
     function initialize() public {
@@ -30,9 +31,7 @@ contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
         action.scriptOffset = 0;    //uint256 scriptOffset;
         action.scriptRemainder = _executionScript.length;    //uint256 scriptRemainder;
         action.executed = false;    //bool executed;
-        //addOption(actionId, "opt1", 0x52ab26196E7144B28C117d61311e546f8D3fB799, bytes32(51), bytes32(71));
-        //addOption(actionId, "opt2", 0x50262f164A4FE4AeeA1C88BbAAa5Ce7009ADf722, bytes32(52), bytes32(72));
-        //addOption(actionId, "opt3", 0x67671de5CA3bB02aDf4Bc82Ab8753D218C6f5484, bytes32(53), bytes32(73));
+        emit NewSynthAction(actionId);
     }
 
     function addExternalOption(uint256 _actionId, string _info, address _optionDescription, bytes32 _id1, bytes32 _id2) public {
