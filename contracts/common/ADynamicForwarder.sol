@@ -413,35 +413,68 @@ contract ADynamicForwarder is IForwarder {
         action.executed = true;
         uint256 optionsLength = action.optionKeys.length;
 
+        // initialize the pointer for the originally parsed script
         bytes memory origExecScript = new bytes(32);
+        // set the pointer to the original script
         origExecScript = action.executionScript;
+        // dynmaicOffset: The bytevalue in the script where the
+        // dynamic-length parameters will be encoded
+        // This can probably be hard-coded now that we're nailing down this specification
         uint256 dynamicOffset = origExecScript.uint256At(32);
         emit LogVal(dynamicOffset);
+        // The total length of the new script will be two 32 byte spaces
+        // for each candidate (one for support one for address)
+        // as well as 3 32 byte spaces for
+        // the header (specId 0x4, target address 0x14, calldata 0x4, function hash 0x4)
+        // and the two dynamic param locations
+        // as well as additional space for the staticParameters
         uint256 infoStrLength = action.infoStringLength;
         emit LogVal(infoStrLength);
         emit LogVal(optionsLength);
         uint256 desStrLength = bytes(action.description).length;
         emit LogVal(desStrLength);
+        // Calculate the total length of the call script to be encoded
+        // 228: The words needed to specify lengths of the various dynamic params
+        //      There are  7 dynamic params in this spec so 7 * 32 + function hash = 228
+        // dynamicOffset: the byte number where the first parameter's data area begins
+        //      This number accounts for the size of the initial parameter locations
+        // optionsLength: The quantity of options in the action script multiplied by 160
+        //      aince each option will require 5 words for it's data (160 = 32 * 5)
         uint256 callDataLength = 228 + dynamicOffset + optionsLength * 160;
         emit LogVal(callDataLength);
+        // add the length of the info and description strings to the total length
+        // string lengths that aren't cleanly divisible by 32 require an extra word
         callDataLength += (infoStrLength / 32) * 32 + (infoStrLength % 32 == 0 ? 0 : 32);
         callDataLength += (desStrLength / 32) * 32 + (desStrLength % 32 == 0 ? 0 : 32);
         emit LogVal(callDataLength);
+        // initialize a location in memory to copy in the call data length
         bytes memory callDataLengthMem = new bytes(32);
+        // copy the call data length into the memory location
         assembly { // solium-disable-line security/no-inline-assembly
             mstore(add(callDataLengthMem, 32), callDataLength)
         }
+        // initialize the script with 28 extra bytes to account for header info:
+        //  1. specId (4 bytes)
+        //  2. target address (20 bytes)
+        //  3. callDataLength itself (4 bytes)
         bytes memory script = new bytes(callDataLength + 28);
         emit LogVal(callDataLength + 28);
+        // copy the header info plus the dynamicOffset entry into the first param
+        // since it doesn't change
         script.copy(origExecScript.getPtr() + 32,0, 64);
-
+        // copy the calldatalength stored in memory into the new script
         memcpyshort((script.getPtr() + 56), callDataLengthMem.getPtr() + 60, 4);
-
+        // calculate and copy in the locations for all dynami elements
         addDynamicElements(script, dynamicOffset, optionsLength, infoStrLength, desStrLength);
+        // copy over remaining static parameters
         script.copy(origExecScript.getPtr() + 288, 256, dynamicOffset - 256);
+        // add option addresses and option values
+        // keep track of current location in the script using offset
         uint256 offset = addAddressesAndActions(_actionId, script, optionsLength, dynamicOffset);
 
         offset = _goToParamOffset(INDICIES_PARAM_LOC, script) + 0x20;
+        // Copy in the composite info string for all options,
+        // along with the indices for each options substring
         offset = addInfoString(_actionId, script, optionsLength, offset);
         //Copy over Description
         offset = _goToParamOffset(DESCRIPTION_PARAM_LOC, script) + 0x20;
