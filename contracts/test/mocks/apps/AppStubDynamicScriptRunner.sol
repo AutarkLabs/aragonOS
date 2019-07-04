@@ -15,8 +15,9 @@ contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
         initialized();
     }
 
-    function parseNewAction(bytes _evmScript) public {
-        parseScript(_evmScript);
+    function parseNewAction(bytes _evmScript) public returns(uint256) {
+        uint256 actionId = parseScript(_evmScript);
+        return actionId;
     }
 
     // Populate action without parsing an execution script
@@ -114,7 +115,8 @@ contract AppStubDynamicScriptRunner is AragonApp, ADynamicForwarder {
     * @param _evmScript Start vote with script
     */
     function forward(bytes _evmScript) public { // solium-disable-line function-order
-        parseNewAction(_evmScript); /*, true);*/
+        uint256 actionId = parseNewAction(_evmScript); /*, true);*/
+        emit NewSynthAction(actionId);
     }
 
     /*

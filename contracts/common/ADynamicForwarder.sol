@@ -489,8 +489,25 @@ contract ADynamicForwarder is IForwarder {
         return script;
     }
 
-    function parseScript(bytes _evmScript) internal returns(uint256 actionId) {
-
+    function parseScript(bytes _executionScript) internal returns(uint256 actionId) {
+        actionId = actions.length++;
+        Action storage actionInstance = actions[actionId];
+        actionInstance.executionScript = _executionScript;
+        actionInstance.infoStringLength = 0;
+        actionInstance.scriptOffset = 0;
+        actionInstance.scriptRemainder = 0;
+        // Spec ID must be 2
+        require(_executionScript.uint32At(0x0) == 2); // solium-disable-line error-reason
+        if (_executionScript.length != 4) {
+            uint256 scriptOffset;
+            uint256 scriptRemainder;
+            (scriptOffset, scriptRemainder) = _extractOptions(_executionScript, actionId);
+            actionInstance.scriptOffset = scriptOffset;
+            actionInstance.scriptRemainder = scriptRemainder;
+        }
+        // First Static Parameter in script parsed for the externalId
+        actionInstance.externalId = _goToParamOffset(TOTAL_DYNAMIC_PARAMS + 1, _executionScript) - 0x20;
+        emit OrigScript(_executionScript);
     }
 
     function getPtr(bytes memory _x) internal pure returns (uint256 ptr) {

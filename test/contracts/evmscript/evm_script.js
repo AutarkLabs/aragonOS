@@ -635,22 +635,25 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
             [ 4, 4, 4 ],
-            'arg1arg2arg3',
-            'description',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            'opt1opt2opt3',
+            'testdescription',
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
-
         let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(script, 'testdescription')
         )
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt1', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt2', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'opt3', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
@@ -677,16 +680,20 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           .contract.setSignal.getData(
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
-            [ 0, 0, 0 ],
-            '',
+            [ 4, 4, 4 ],
+            'opt1opt2opt3',
             'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*
         let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(
             script, 
@@ -696,6 +703,7 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
@@ -722,16 +730,20 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           .contract.setSignal.getData(
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
-            [ 0, 0, 0 ],
-            '',
-            'We will either see technology lead to a more free, open, and fair society or reinforce a global regime of centralized control, surveillance, and oppression. Our fear is that without a global, conscious, and concerted effort, the outlook is incredibly bleak.',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            [ 4, 4, 4 ],
+            'opt1opt2opt3',
+            'We will either see technology...',
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*
         let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(
             script, 
@@ -741,6 +753,7 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
@@ -767,16 +780,20 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           .contract.setSignal.getData(
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
-            [ 0, 0, 0 ],
-            '',
-            '',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            [ 13, 15, 12 ],
+            'deaddeaddeadybeefybeefybeefybeefdeadbeef',
+            'We will either see technology...',
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*
         let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(
             script, 
@@ -786,9 +803,11 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'deaddeaddeady', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'beefybeefybeefy', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, 'beefdeadbeef', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
+        
         await dynamicScriptRunnerApp.runScript(actionId)
         const result0 = await dynamicExecutionTarget.getSignal(0)
         assert.equal(result0[0].toString(),'11', 'incorrect support for option 0')
@@ -812,22 +831,27 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           .contract.setSignal.getData(
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
-            [ 0, 0, 0 ],
+            [ 13, 15, 12 ],
             '',
             '',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
         let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*
+        let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(script, '')
         )
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
@@ -854,16 +878,20 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
           .contract.setSignal.getData(
             [ account1, account2, account3 ],
             [ 0, 0, 0 ],
-            [ 0, 0, 0 ],
-            '',
-            '',
-            [ 0x61, 0x61, 0x61 ],
-            [ 0x61, 0x61, 0x61 ],
+            [ 4, 4, 4 ],
+            'opt1opt2opt3',
+            'testdescription',
+            [ web3.fromUtf8('51'), web3.fromUtf8('52'), web3.fromUtf8('53') ],
+            [ web3.fromUtf8('71'), web3.fromUtf8('72'), web3.fromUtf8('73') ],
             5,
             true
           ) 
         }
         const script = encodeCallScript([action], 2)
+        let actionId = getCreatedActionId(
+          await dynamicScriptRunnerApp.forward(script)
+        )
+        /*
         let actionId = getCreatedActionId(
           await dynamicScriptRunnerApp.newSyntheticAction(
             script, 
@@ -873,7 +901,9 @@ contract('EVM Script', ([ account1, account2, account3, _, boss]) => {
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account1, web3.fromUtf8('51'), web3.fromUtf8('71'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account2, web3.fromUtf8('52'), web3.fromUtf8('72'));
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', account3, web3.fromUtf8('53'), web3.fromUtf8('73'));
+        */
         await dynamicScriptRunnerApp.addExternalOption(actionId, '', boss, web3.fromUtf8('54'), web3.fromUtf8('74'));
+        
         await dynamicScriptRunnerApp.updateSupport(actionId,0,11)
         await dynamicScriptRunnerApp.updateSupport(actionId,1,12)
         await dynamicScriptRunnerApp.updateSupport(actionId,2,13)
